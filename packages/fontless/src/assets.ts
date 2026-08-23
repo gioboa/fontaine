@@ -18,9 +18,16 @@ function toArray<T>(value?: T | T[]): T[] {
   return !value || Array.isArray(value) ? value as T[] : [value]
 }
 
+/** A remote font to download, keyed in `renderedFontURLs` by the file name it will be emitted as. */
+export interface RenderedFont {
+  url: string
+  /** `RequestInit` the provider requires for this font, such as authorization headers. */
+  init?: RequestInit
+}
+
 export interface NormalizeFontDataContext {
   dev: boolean
-  renderedFontURLs: Map<string, string>
+  renderedFontURLs: Map<string, RenderedFont>
   assetsBaseURL: string
   /**
    * Project root, used to keep emitted file names for local (`file:`) fonts stable
@@ -65,7 +72,7 @@ export function normalizeFontData(context: NormalizeFontDataContext, faces: RawF
             hash(hashableSource(context, source)).replace(/-/, '_') + (extname(source.url) || formatToExtension(source.format) || ''),
           ].filter(Boolean).join('-')
 
-          context.renderedFontURLs.set(file, source.url)
+          context.renderedFontURLs.set(file, { url: source.url, init: face.meta?.init })
           source.originalURL = source.url
 
           const baseURL = context.baseURL || '/'

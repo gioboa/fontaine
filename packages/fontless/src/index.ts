@@ -1,6 +1,6 @@
 export { normalizeFontData } from './assets'
 
-export type { NormalizeFontDataContext } from './assets'
+export type { NormalizeFontDataContext, RenderedFont } from './assets'
 export { generateFontFace, parseFont } from './css/render'
 
 export { defaultOptions, defaultValues } from './defaults'

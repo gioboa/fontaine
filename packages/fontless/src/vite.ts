@@ -1,5 +1,5 @@
 import type { Plugin, ViteDevServer } from 'vite'
-import type { NormalizeFontDataContext } from './assets'
+import type { NormalizeFontDataContext, RenderedFont } from './assets'
 import type { LinkAttributes } from './runtime'
 import type { FontlessOptions } from './types'
 import type { FontFamilyInjectionPluginOptions } from './utils'
@@ -50,7 +50,7 @@ export function fontless(_options?: FontlessOptions): Plugin[] {
     return fileName
   }
 
-  async function loadFont(file: string, url: string): Promise<Buffer> {
+  async function loadFont(file: string, { url, init }: RenderedFont): Promise<Buffer> {
     if (url.startsWith('file://')) {
       return readFile(fileURLToPath(url))
     }
@@ -61,7 +61,7 @@ export function fontless(_options?: FontlessOptions): Plugin[] {
     if (cached) {
       return cached
     }
-    const response = await fetch(url)
+    const response = await fetch(url, init)
     if (!response.ok) {
       throw new Error(`Could not fetch font from \`${url}\` (${response.status} ${response.statusText}).`)
     }
@@ -98,7 +98,7 @@ export function fontless(_options?: FontlessOptions): Plugin[] {
 
       assetContext = {
         dev: config.mode === 'development',
-        renderedFontURLs: new Map<string, string>(),
+        renderedFontURLs: new Map<string, RenderedFont>(),
         root: config.root,
         assetsBaseURL: options.assets?.prefix || joinURL('/', config.build.assetsDir, '_fonts'),
         // A relative base (`''` or `'./'`) cannot be resolved from a URL in CSS served
@@ -188,13 +188,13 @@ export function fontless(_options?: FontlessOptions): Plugin[] {
       server.middlewares.use(mountPath, async (req, res, next) => {
         try {
           const filename = req.url!.slice(1)
-          const url = assetContext.renderedFontURLs.get(filename)
-          if (!url) {
+          const font = assetContext.renderedFontURLs.get(filename)
+          if (!font) {
             next()
             return
           }
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
-          res.end(await loadFont(filename, url))
+          res.end(await loadFont(filename, font))
         }
         catch (e) {
           next(e)
@@ -240,9 +240,9 @@ export function fontless(_options?: FontlessOptions): Plugin[] {
           return
         }
         const file = fontFiles.get(output.fileName)
-        const url = file && assetContext.renderedFontURLs.get(file)
-        if (url) {
-          output.source = await loadFont(file, url)
+        const font = file && assetContext.renderedFontURLs.get(file)
+        if (font) {
+          output.source = await loadFont(file, font)
         }
       }))
     },

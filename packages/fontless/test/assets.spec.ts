@@ -1,4 +1,4 @@
-import type { NormalizeFontDataContext } from '../src/assets'
+import type { NormalizeFontDataContext, RenderedFont } from '../src/assets'
 import { pathToFileURL } from 'node:url'
 import { join } from 'pathe'
 import { describe, expect, it } from 'vitest'
@@ -7,7 +7,7 @@ import { normalizeFontData } from '../src/assets'
 function createContext(overrides: Partial<NormalizeFontDataContext> = {}): NormalizeFontDataContext {
   return {
     dev: false,
-    renderedFontURLs: new Map<string, string>(),
+    renderedFontURLs: new Map<string, RenderedFont>(),
     assetsBaseURL: '/assets/_fonts',
     ...overrides,
   }
@@ -50,7 +50,7 @@ describe('normalizeFontData', () => {
     const [source] = face!.src as [{ url: string, originalURL?: string }]
 
     expect(source.originalURL).toBe('https://fonts.example.com/font.woff2')
-    expect([...context.renderedFontURLs.values()]).toEqual(['https://fonts.example.com/font.woff2'])
+    expect([...context.renderedFontURLs.values()]).toEqual([{ url: 'https://fonts.example.com/font.woff2', init: undefined }])
     expect(source.url.endsWith([...context.renderedFontURLs.keys()][0]!)).toBe(true)
   })
 
@@ -66,7 +66,7 @@ describe('normalizeFontData', () => {
   it('should upgrade protocol-relative URLs to https', () => {
     const context = createContext()
     normalizeFontData(context, { src: '//fonts.example.com/font.woff2' })
-    expect([...context.renderedFontURLs.values()]).toEqual(['https://fonts.example.com/font.woff2'])
+    expect([...context.renderedFontURLs.values()]).toEqual([{ url: 'https://fonts.example.com/font.woff2', init: undefined }])
   })
 
   it('should leave local and relative font sources untouched', () => {
@@ -99,6 +99,14 @@ describe('normalizeFontData', () => {
     normalizeFontData(context, { src: [{ url: 'https://fonts.example.com/font', format: 'unknown-format' }] })
 
     expect([...context.renderedFontURLs.keys()][0]).not.toContain('.')
+  })
+
+  it('should register the request init a provider requires for a font', () => {
+    const context = createContext()
+    const init = { headers: { authorization: 'Bearer token' } }
+    normalizeFontData(context, { src: [{ url: 'https://fonts.example.com/font.woff2', format: 'woff2' }], meta: { init } })
+
+    expect([...context.renderedFontURLs.values()][0]!.init).toEqual(init)
   })
 
   it('should normalise unicode ranges to an array', () => {
