@@ -1,6 +1,6 @@
 import type { FontFaceData, InitializedProvider, Provider, ProviderContext } from 'unifont'
 import type { FontFamilyProviderOverride, FontlessOptions, RawFontFaceData } from '../src/types'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { createResolver } from '../src/resolve'
 
 // Helper to create a mock Provider (callable object with _name and _options properties)
@@ -218,6 +218,32 @@ describe('createResolver', () => {
       })
 
       expect(resolver).toBeDefined()
+    })
+  })
+
+  describe('apiBase option', () => {
+    it('should route provider API requests through the configured proxy', async () => {
+      const requested: string[] = []
+      vi.stubGlobal('fetch', async (url: string) => {
+        requested.push(url)
+        return new Response('{}')
+      })
+      onTestFinished(() => void vi.unstubAllGlobals())
+
+      let providerFetch: ProviderContext['fetch']
+      const provider = () => Object.assign((ctx: ProviderContext) => {
+        providerFetch = ctx.fetch
+        return Promise.resolve({ resolveFont: async () => undefined })
+      }, { _name: 'test', _options: {} }) as Provider
+
+      await createResolver({
+        options: { providers: { test: provider }, apiBase: 'https://proxy.example.com' },
+        providers: { test: provider },
+        normalizeFontData: defaultNormalizeFontData,
+      })
+
+      await providerFetch!('https://fonts.google.com/metadata/fonts')
+      expect(requested).toEqual(['https://proxy.example.com/google/v1/fonts'])
     })
   })
 

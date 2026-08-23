@@ -169,6 +169,11 @@ fontless({
     prefix: '/_fonts'
   },
 
+  // Route provider API requests through a `unifont` proxy, for environments that cannot
+  // reach the provider APIs directly. Defaults to `https://proxy.unifont.dev` in browsers
+  // and StackBlitz web containers, and to no proxy elsewhere. Pass `false` to disable.
+  apiBase: 'https://proxy.unifont.dev',
+
   // Experimental features
   experimental: {
     disableLocalFallbacks: false

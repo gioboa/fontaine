@@ -198,6 +198,21 @@ export interface FontlessOptions {
    * @default false
    */
   throwOnError?: boolean
+  /**
+   * Base URL of a `unifont` proxy to route provider API requests through, for environments
+   * (browsers, web containers) that cannot call the provider APIs directly. Providers whose APIs
+   * are already reachable cross-origin, such as `npm`, are unaffected.
+   *
+   * Defaults to `https://proxy.unifont.dev` in a browser or a StackBlitz web container, where the
+   * provider APIs are unreachable anyway, and to no proxy elsewhere. Pass `false` to always
+   * request the provider APIs directly.
+   *
+   * **Experimental.** `https://proxy.unifont.dev` is best-effort, rate-limited at the discretion
+   * of the `unifont` maintainers, and may change or disappear without notice. Deploy your own if
+   * you need one in production.
+   * @example 'https://proxy.unifont.dev'
+   */
+  apiBase?: string | false
   experimental?: {
     /**
      * You can disable adding local fallbacks for generated font faces, like `local('Font Face')`.
