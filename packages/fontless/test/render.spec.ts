@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { generateFontFace, parseFont, relativiseFontSources } from '../src/css/render'
+import { generateFontFace, generateFontFallbacks, parseFont, relativiseFontSources } from '../src/css/render'
 
 describe('rendering @font-face', () => {
   it('should add declarations for `font-family`', () => {
@@ -82,6 +82,21 @@ describe('rendering @font-face', () => {
         font-display: swap;
       }"
     `)
+  })
+})
+
+describe('generateFontFallbacks', () => {
+  it('should generate a fallback face for a family without known metrics', async () => {
+    const [css] = await generateFontFallbacks('Inter', { src: [{ url: '/inter.woff2' }] }, [
+      { name: 'Inter Fallback: Some Unknown Font', font: 'Some Unknown Font' },
+    ])
+
+    expect(css).toContain('font-family: "Inter Fallback: Some Unknown Font"')
+    expect(css).toContain('local("Some Unknown Font")')
+  })
+
+  it('should generate no fallbacks when none are requested', async () => {
+    expect(await generateFontFallbacks('Inter', { src: [{ url: '/inter.woff2' }] })).toEqual([])
   })
 })
 

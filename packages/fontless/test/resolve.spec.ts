@@ -1,6 +1,7 @@
 import type { FontFaceData, InitializedProvider, Provider, ProviderContext } from 'unifont'
 import type { FontFamilyProviderOverride, FontlessOptions, RawFontFaceData } from '../src/types'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { defaultValues } from '../src/defaults'
 import { createResolver } from '../src/resolve'
 
 // Helper to create a mock Provider (callable object with _name and _options properties)
@@ -218,6 +219,63 @@ describe('createResolver', () => {
       })
 
       expect(resolver).toBeDefined()
+    })
+  })
+
+  describe('fallback categories', () => {
+    function createCategoryProvider(fallbacks?: string[]) {
+      return () => createMockProviderFn('test', async () => ({
+        fonts: [{ src: [{ url: '/font.woff2', format: 'woff2' }] }],
+        fallbacks,
+      }))
+    }
+
+    it('should use the category the provider reports for the family', async () => {
+      const provider = createCategoryProvider(['monospace'])
+      const resolver = await createResolver({
+        options: { providers: { test: provider } },
+        providers: { test: provider },
+        normalizeFontData: defaultNormalizeFontData,
+      })
+
+      const result = await resolver('Test Font')
+      expect(result?.fallbacks).toEqual(defaultValues.fallbacks.monospace)
+    })
+
+    it('should prefer the generic family declared in CSS over the provider category', async () => {
+      const provider = createCategoryProvider(['monospace'])
+      const resolver = await createResolver({
+        options: { providers: { test: provider } },
+        providers: { test: provider },
+        normalizeFontData: defaultNormalizeFontData,
+      })
+
+      const result = await resolver('Test Font', undefined, { fallbacks: [], generic: 'serif' })
+      expect(result?.fallbacks).toEqual(defaultValues.fallbacks.serif)
+    })
+
+    it('should fall back to sans-serif when the provider reports no known category', async () => {
+      const provider = createCategoryProvider(['Some Other Font'])
+      const resolver = await createResolver({
+        options: { providers: { test: provider } },
+        providers: { test: provider },
+        normalizeFontData: defaultNormalizeFontData,
+      })
+
+      const result = await resolver('Test Font')
+      expect(result?.fallbacks).toEqual(defaultValues.fallbacks['sans-serif'])
+    })
+
+    it('should prefer explicit family fallbacks over the provider category', async () => {
+      const provider = createCategoryProvider(['monospace'])
+      const resolver = await createResolver({
+        options: { providers: { test: provider } },
+        providers: { test: provider },
+        normalizeFontData: defaultNormalizeFontData,
+      })
+
+      const result = await resolver('Test Font', { name: 'Test Font', provider: 'test', fallbacks: ['Arial'] })
+      expect(result?.fallbacks).toEqual(['Arial'])
     })
   })
 

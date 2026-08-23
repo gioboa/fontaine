@@ -108,8 +108,21 @@ export async function createResolver(context: ResolverContext): Promise<Resolver
     return addLocalFallbacks(fontFamily, font)
   }
 
+  /**
+   * Fallback families to generate metrics for, preferring an explicit override, then the generic
+   * family declared alongside the font in CSS, then the category the provider reports for it.
+   */
+  function resolveFallbacks(override: FontFamilyManualOverride | FontFamilyProviderOverride | undefined, generic: GenericCSSFamily | undefined, providerFallbacks?: string[]): string[] {
+    const explicit = override && 'fallbacks' in override ? override.fallbacks : undefined
+    if (explicit) {
+      return explicit
+    }
+    const category = generic ?? providerFallbacks?.find(fallback => fallback in normalizedDefaults.fallbacks) as GenericCSSFamily | undefined
+    return normalizedDefaults.fallbacks[category || 'sans-serif']
+  }
+
   return async function resolveFontFaceWithOverride(fontFamily: string, override?: FontFamilyManualOverride | FontFamilyProviderOverride, fallbackOptions?: { fallbacks: string[], generic?: GenericCSSFamily }): Promise<FontFaceResolution | undefined> {
-    const fallbacks = (override && 'fallbacks' in override ? override.fallbacks : undefined) || normalizedDefaults.fallbacks[fallbackOptions?.generic || 'sans-serif']
+    const fallbacks = resolveFallbacks(override, fallbackOptions?.generic)
 
     if (override && 'src' in override) {
       const fonts = addFallbacks(fontFamily, normalizeFontData(pickDescriptors(override)))
@@ -168,7 +181,7 @@ export async function createResolver(context: ResolverContext): Promise<Resolver
           fonts: fontsWithLocalFallbacks,
         })
         return {
-          fallbacks: result.fallbacks || defaults.fallbacks,
+          fallbacks: resolveFallbacks(override, fallbackOptions?.generic, result.fallbacks),
           fonts: fontsWithLocalFallbacks,
         }
       }
@@ -201,7 +214,7 @@ export async function createResolver(context: ResolverContext): Promise<Resolver
       fonts: fontsWithLocalFallbacks,
     })
     return {
-      fallbacks: defaults.fallbacks,
+      fallbacks: resolveFallbacks(override, fallbackOptions?.generic, result.fallbacks),
       fonts: fontsWithLocalFallbacks,
     }
   }
