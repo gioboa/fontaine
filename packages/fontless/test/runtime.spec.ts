@@ -192,6 +192,15 @@ describe('`fontless/runtime` global font faces', () => {
   })
 })
 
+describe('`fontless/runtime` externalisation', () => {
+  it('should opt the package out of SSR externalisation', () => {
+    const plugin = fontless().find(plugin => plugin.name === 'fontless-runtime')!
+    const config = (plugin.config as () => { ssr: { noExternal: string[] } })()
+
+    expect(config.ssr.noExternal).toContain('fontless')
+  })
+})
+
 describe('published `fontless/runtime` stub', () => {
   it('should warn that no fonts will be preloaded', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})

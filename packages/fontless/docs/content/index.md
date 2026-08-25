@@ -73,7 +73,7 @@ Effortlessly optimize web fonts with fontless. Zero-runtime CSS solution for Goo
   icon: lucide:target
   ---
   Works with all modern frameworks (Vue, React, Solid, Svelte, Qwik, etc.).
-  :: 
+  ::
 ::
 
 ## Installation
@@ -210,8 +210,6 @@ fontless({
 Subsetting runs on the font file itself with [harfbuzz](https://harfbuzz.github.io/) (via [`subset-font`](https://github.com/papandreou/subset-font)), so it works for fonts from every provider as well as local files, keeps the original format and keeps a variable font's axes. Where the provider can subset server-side (Google Fonts' `text=` API) the glyph list is passed through to it as well, so the full file is never downloaded.
 
 The glyph list is part of the emitted file's name, so two families sharing a source font with different glyph lists get their own file, and changing the list invalidates the cache. Fallback metrics are still read from the original font, so `size-adjust` and friends are unaffected.
-
-Faces subsetted locally are emitted with a `unicode-range` covering exactly the glyph list. This matters if the same family is also loaded in full elsewhere on the page: browsers do not fall through to another face of the same family for a character the matched face is missing, they skip past the family entirely, so a subsetted face without a range would block every character it does not contain. A `unicode-range` the provider already declared (as Google Fonts does, since the glyph list is passed through to it) is kept as-is.
 
 **Check the font's licence first.** Subsetting modifies the file you ship, and some licences (particularly commercial and free-with-conditions ones) restrict modifying, converting or self-hosting a font.
 

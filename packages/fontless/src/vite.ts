@@ -42,7 +42,8 @@ export function fontless(_options?: FontlessOptions): Plugin[] {
   let assetContext: NormalizeFontDataContext & { baseURL: string }
   let command: 'build' | 'serve'
   let server: ViteDevServer | undefined
-  const RUNTIME_NAME = 'fontless/runtime'
+  const PACKAGE_NAME = 'fontless'
+  const RUNTIME_NAME = `${PACKAGE_NAME}/runtime`
   let storage: ReturnType<typeof createFontlessStorage>
 
   // `emit` is only available while a CSS module is being transformed, as it needs that
@@ -410,12 +411,10 @@ export function fontless(_options?: FontlessOptions): Plugin[] {
   let warnedAboutEmptyPreloads = false
   const runtimePlugin: Plugin = {
     name: 'fontless-runtime',
-    configEnvironment() {
+    config() {
       return {
-        resolve: {
-          // an externalised import would bypass `resolveId` below and load the
-          // published stub, which has no preloads or font faces in it
-          noExternal: [RUNTIME_NAME],
+        ssr: {
+          noExternal: [PACKAGE_NAME],
         },
       }
     },
