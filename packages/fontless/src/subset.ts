@@ -17,6 +17,28 @@ export function normalizeGlyphs(glyphs?: string | string[]): string | undefined 
   return characters.length > 0 ? characters.sort().join('') : undefined
 }
 
+/**
+ * Express a normalised glyph list as a CSS `unicode-range` value, coalescing consecutive
+ * codepoints into ranges.
+ */
+export function glyphsToUnicodeRange(glyphs: string): string[] {
+  const codepoints = [...new Set([...glyphs].map(character => character.codePointAt(0)!))].sort((a, b) => a - b)
+  const ranges: string[] = []
+  for (let index = 0; index < codepoints.length; index++) {
+    const start = codepoints[index]!
+    let end = start
+    while (codepoints[index + 1] === end + 1) {
+      end = codepoints[++index]!
+    }
+    ranges.push(end > start ? `U+${toHex(start)}-${toHex(end)}` : `U+${toHex(start)}`)
+  }
+  return ranges
+}
+
+function toHex(codepoint: number): string {
+  return codepoint.toString(16).toUpperCase().padStart(4, '0')
+}
+
 type Subsetter = typeof import('subset-font')
 
 let subsetter: Promise<Subsetter> | undefined

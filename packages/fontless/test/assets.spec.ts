@@ -3,6 +3,16 @@ import { pathToFileURL } from 'node:url'
 import { join } from 'pathe'
 import { describe, expect, it } from 'vitest'
 import { normalizeFontData } from '../src/assets'
+import { normalizeGlyphs } from '../src/subset'
+
+/** Whether a CSS `unicode-range` value covers a character, as a browser would read it. */
+function covers(range: string[], character: string): boolean {
+  const codepoint = character.codePointAt(0)!
+  return range.some((entry) => {
+    const [start, end] = entry.replace('U+', '').split('-')
+    return codepoint >= Number.parseInt(start!, 16) && codepoint <= Number.parseInt(end ?? start!, 16)
+  })
+}
 
 function createContext(overrides: Partial<NormalizeFontDataContext> = {}): NormalizeFontDataContext {
   return {
@@ -112,5 +122,35 @@ describe('normalizeFontData', () => {
   it('should normalise unicode ranges to an array', () => {
     const [face] = normalizeFontData(createContext(), { src: 'Some Local Font', unicodeRange: 'U+0000-00FF' })
     expect(face!.unicodeRange).toEqual(['U+0000-00FF'])
+  })
+
+  it('should declare a unicode range covering the glyphs a locally subsetted face was reduced to', () => {
+    const glyphs = normalizeGlyphs('Hand')!
+    const [face] = normalizeFontData(createContext(), { src: [{ url: 'https://fonts.example.com/font.woff2', format: 'woff2' }] }, { glyphs })
+    const range = face!.unicodeRange!
+
+    expect(range).toEqual(['U+0048', 'U+0061', 'U+0064', 'U+006E'])
+    for (const character of glyphs) {
+      expect(covers(range, character)).toBe(true)
+    }
+    expect(covers(range, 'z')).toBe(false)
+  })
+
+  it('should coalesce consecutive codepoints into ranges', () => {
+    const [face] = normalizeFontData(createContext(), { src: [{ url: 'https://fonts.example.com/font.woff2', format: 'woff2' }] }, { glyphs: normalizeGlyphs('abcdez0') })
+
+    expect(face!.unicodeRange).toEqual(['U+0030', 'U+0061-0065', 'U+007A'])
+  })
+
+  it('should keep a unicode range the provider declared', () => {
+    const [face] = normalizeFontData(createContext(), { src: [{ url: 'https://fonts.example.com/font.woff2', format: 'woff2' }], unicodeRange: 'U+0000-00FF' }, { glyphs: normalizeGlyphs('Hand') })
+
+    expect(face!.unicodeRange).toEqual(['U+0000-00FF'])
+  })
+
+  it('should not declare a unicode range for a face with no emitted file', () => {
+    const [face] = normalizeFontData(createContext(), { src: 'Some Local Font' }, { glyphs: normalizeGlyphs('Hand') })
+
+    expect(face!.unicodeRange).toBeUndefined()
   })
 })

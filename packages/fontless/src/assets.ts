@@ -6,6 +6,7 @@ import { extname, relative } from 'pathe'
 import { filename } from 'pathe/utils'
 import { hasProtocol, joinRelativeURL, joinURL } from 'ufo'
 import { formatToExtension, parseFont } from './css/render'
+import { glyphsToUnicodeRange } from './subset'
 
 function hashableSource(context: NormalizeFontDataContext, source: { url: string }) {
   if (!source.url.startsWith('file://') || !context.root) {
@@ -64,37 +65,45 @@ export interface NormalizeFontDataContext {
 export function normalizeFontData(context: NormalizeFontDataContext, faces: RawFontFaceData | FontFaceData[], options: NormalizeFontDataOptions = {}): FontFaceData[] {
   const data: FontFaceData[] = []
   for (const face of toArray(faces)) {
+    let subsetted = false
+    const unicodeRange = toArray(face.unicodeRange)
+    const src = toArray(face.src).map((src) => {
+      const source = typeof src === 'string' ? parseFont(src) : src
+      if ('url' in source && hasProtocol(source.url, { acceptRelative: true })) {
+        source.url = source.url.replace(/^\/\//, 'https://')
+        const _url = source.url.replace(/\?.*/, '')
+        const MAX_FILENAME_PREFIX_LENGTH = 50
+        const file = [
+          // TODO: investigate why negative ignore pattern below is being ignored
+          hash(filename(_url) || _url).replace(/^-+/, '').slice(0, MAX_FILENAME_PREFIX_LENGTH),
+          hash(options.glyphs
+            ? { source: hashableSource(context, source), glyphs: options.glyphs }
+            : hashableSource(context, source)).replace(/-/, '_') + (extname(source.url) || formatToExtension(source.format) || ''),
+        ].filter(Boolean).join('-')
+
+        context.renderedFontURLs.set(file, { url: source.url, init: face.meta?.init, subset: options.glyphs })
+        subsetted ||= Boolean(options.glyphs)
+        source.originalURL = source.url
+
+        const baseURL = context.baseURL || '/'
+        source.url = context.resolveAssetURL?.(file, source.url)
+          ?? (context.dev
+            ? joinRelativeURL(baseURL, context.assetsBaseURL, file)
+            : joinURL(baseURL, context.assetsBaseURL, file))
+
+        context.callback?.(file, source.url)
+      }
+
+      return source
+    })
+
     data.push({
       ...face,
-      unicodeRange: toArray(face.unicodeRange),
-      src: toArray(face.src).map((src) => {
-        const source = typeof src === 'string' ? parseFont(src) : src
-        if ('url' in source && hasProtocol(source.url, { acceptRelative: true })) {
-          source.url = source.url.replace(/^\/\//, 'https://')
-          const _url = source.url.replace(/\?.*/, '')
-          const MAX_FILENAME_PREFIX_LENGTH = 50
-          const file = [
-            // TODO: investigate why negative ignore pattern below is being ignored
-            hash(filename(_url) || _url).replace(/^-+/, '').slice(0, MAX_FILENAME_PREFIX_LENGTH),
-            hash(options.glyphs
-              ? { source: hashableSource(context, source), glyphs: options.glyphs }
-              : hashableSource(context, source)).replace(/-/, '_') + (extname(source.url) || formatToExtension(source.format) || ''),
-          ].filter(Boolean).join('-')
-
-          context.renderedFontURLs.set(file, { url: source.url, init: face.meta?.init, subset: options.glyphs })
-          source.originalURL = source.url
-
-          const baseURL = context.baseURL || '/'
-          source.url = context.resolveAssetURL?.(file, source.url)
-            ?? (context.dev
-              ? joinRelativeURL(baseURL, context.assetsBaseURL, file)
-              : joinURL(baseURL, context.assetsBaseURL, file))
-
-          context.callback?.(file, source.url)
-        }
-
-        return source
-      }),
+      // A locally subsetted file only contains the requested glyphs, and browsers do not
+      // fall through to another face of the same family for a glyph the matched face is
+      // missing, so the face has to declare what it can render.
+      unicodeRange: unicodeRange ?? (subsetted && options.glyphs ? glyphsToUnicodeRange(options.glyphs) : undefined),
+      src,
     })
   }
   return data

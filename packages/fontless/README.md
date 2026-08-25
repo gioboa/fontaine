@@ -169,6 +169,8 @@ Subsetting happens on the font file itself with [harfbuzz](https://harfbuzz.gith
 
 The glyph list is part of the emitted file's name, so two families sharing a source font with different glyph lists get their own file, and changing the list invalidates the cache. Fallback metrics are still read from the original font, so `size-adjust` and friends are unaffected. Files are emitted unchanged for families without `glyphs`.
 
+Faces that are subsetted locally are emitted with a `unicode-range` covering exactly the glyph list. This matters if the same family is also loaded in full elsewhere on the page: browsers do not fall through to another face of the same family for a character the matched face is missing, they skip past the family entirely, so a subsetted face without a range would block every character it does not contain. Where the provider already declared a `unicode-range` (as Google Fonts does, since the glyph list is passed through to it) that range is kept as-is. A family-level `unicodeRange` override still wins over both.
+
 > [!IMPORTANT]
 > Subsetting modifies the font file you ship. Some licences (particularly commercial and free-with-conditions ones) restrict modifying, converting or self-hosting a font, so check the licence or terms of the font you are subsetting before enabling this.
 
